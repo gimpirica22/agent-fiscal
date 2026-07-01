@@ -1,21 +1,21 @@
 # Credentiale - NICIODATA pe GitHub
 .env
 
-# PDF original - fisier mare, nu apartine repo-ului
+# PDF-uri - fisiere mari, nu apartin repo-ului
 *.pdf
 
-# Fisiere temporare
+# Fisiere temporare si log-uri
 *.log
-completare_log.txt
-ingest_log.txt
+*_log.txt
 __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+nohup.out
 
 # Fisiere debug ramase
 debug_*.sql
 lipsa_idx.json
-completare_log.txt
-ingest_log.txt
-nohup.out
+
+# Memorie Claude Code
+.claude/
