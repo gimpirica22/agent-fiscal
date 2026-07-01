@@ -34,6 +34,9 @@ from agent_fiscal import raspunde
 
 load_dotenv()
 
+# Istoricul conversatiei per utilizator: {user_id: [{"role": ..., "text": ...}, ...]}
+ISTORII: dict[int, list[dict]] = {}
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -103,7 +106,10 @@ async def proceseaza_intrebare(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
     try:
-        raspuns = raspunde(intrebare, verbose=False)
+        user_id = update.effective_user.id
+        history = ISTORII.get(user_id, [])
+        raspuns, history_nou = raspunde(intrebare, history=history, verbose=False)
+        ISTORII[user_id] = history_nou
 
         # Imparte in bucati de max 4000 caractere la limita de paragraf
         bucati = []
@@ -132,6 +138,14 @@ async def proceseaza_intrebare(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(
             "A aparut o eroare la procesarea intrebarii. Te rog incearca din nou."
         )
+
+
+async def cmd_nou(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not utilizator_permis(update.effective_user.id):
+        await update.message.reply_text("Acces neautorizat.")
+        return
+    ISTORII.pop(update.effective_user.id, None)
+    await update.message.reply_text("Conversatie resetata. Porneste un subiect nou.")
 
 
 async def cmd_intreaba(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -164,6 +178,7 @@ def main() -> None:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("nou", cmd_nou))
     app.add_handler(CommandHandler("intreaba", cmd_intreaba))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_text))
 

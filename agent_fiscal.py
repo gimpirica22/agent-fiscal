@@ -27,6 +27,7 @@ EMBED_MODEL = "models/gemini-embedding-001"
 EMBED_DIM = 768
 GEMINI_MODEL = "gemini-3.5-flash"
 TOP_K = 6  # numarul de bucati relevante extrase din baza de date
+MAX_HISTORY = 5  # numarul de schimburi (intrebare+raspuns) pastrate in memorie
 
 CONTEXT_FIRME = """
 ## Profilul utilizatorului
@@ -124,7 +125,11 @@ def formateaza_context(bucati: list[dict]) -> str:
     return "\n\n---\n\n".join(parti)
 
 
-def raspunde(intrebare: str, verbose: bool = True) -> str:
+def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = True) -> tuple[str, list[dict]]:
+    """
+    Returneaza (text_raspuns, history_actualizat).
+    history: lista de dict {"role": "user"|"model", "text": "..."}
+    """
     gemini_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
@@ -137,57 +142,75 @@ def raspunde(intrebare: str, verbose: bool = True) -> str:
     bucati = cauta_context(sb, embedding)
 
     if not bucati:
-        return "Eroare: nu am putut gasi fragmente relevante in baza de date."
+        return "Eroare: nu am putut gasi fragmente relevante in baza de date.", history or []
 
     if verbose:
         print(f"Gasit {len(bucati)} fragmente (similaritate maxima: {bucati[0].get('similarity', 0):.3f})")
-        print("Generez raspuns cu Gemini 2.5 Flash...\n")
+        print("Generez raspuns cu Gemini Flash...\n")
 
     context = formateaza_context(bucati)
 
-    prompt_complet = (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"FRAGMENTE DIN CODUL FISCAL:\n\n{context}\n\n"
-        f"---\n\nINTREBARE: {intrebare}"
-    )
+    # Construim conversatia multi-turn cu istoricul anterior
+    contents = []
+    for turn in (history or []):
+        contents.append(
+            types.Content(role=turn["role"], parts=[types.Part(text=turn["text"])])
+        )
+    # Mesajul curent include contextul RAG proaspat
+    mesaj_curent = f"FRAGMENTE LEGISLATIVE RELEVANTE:\n\n{context}\n\n---\n\nINTREBARE: {intrebare}"
+    contents.append(types.Content(role="user", parts=[types.Part(text=mesaj_curent)]))
 
     raspuns = gemini_client.models.generate_content(
         model=GEMINI_MODEL,
-        contents=prompt_complet,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
     )
 
-    return raspuns.text
+    text = raspuns.text
+
+    # Actualizam istoricul cu intrebarea curata (fara contextul RAG) si raspunsul
+    history_nou = list(history or []) + [
+        {"role": "user", "text": intrebare},
+        {"role": "model", "text": text},
+    ]
+    # Pastram doar ultimele MAX_HISTORY schimburi (fiecare schimb = 2 intrari)
+    if len(history_nou) > MAX_HISTORY * 2:
+        history_nou = history_nou[-MAX_HISTORY * 2:]
+
+    return text, history_nou
 
 
 def main():
+    history: list[dict] = []
+
     if len(sys.argv) > 1:
         intrebare = " ".join(sys.argv[1:])
-    else:
-        print("=" * 60)
-        print("  AGENT FISCAL — Codul Fiscal Romania")
-        print("=" * 60)
-        print("Firmele tale: Step Construct SRL | Total Tehnoconstruct SRL")
-        print("Scrie 'exit' pentru a iesi.\n")
+        print()
+        raspuns, _ = raspunde(intrebare)
+        print(raspuns)
+        print()
+        return
+
+    print("=" * 60)
+    print("  AGENT FISCAL — Codul Fiscal Romania")
+    print("=" * 60)
+    print("Firmele tale: Step Construct SRL | Total Tehnoconstruct SRL")
+    print("Scrie 'nou' pentru a reseta conversatia, 'exit' pentru a iesi.\n")
+
+    while True:
         intrebare = input("Intrebarea ta: ").strip()
         if intrebare.lower() in ("exit", "quit", ""):
-            return
-
-    print()
-    raspuns = raspunde(intrebare)
-    print(raspuns)
-    print()
-
-    # Mod interactiv continuu daca nu s-a dat argument din linie de comanda
-    if len(sys.argv) == 1:
-        while True:
-            print("-" * 60)
-            intrebare = input("Alta intrebare (sau 'exit'): ").strip()
-            if intrebare.lower() in ("exit", "quit", ""):
-                break
-            print()
-            raspuns = raspunde(intrebare, verbose=False)
-            print(raspuns)
-            print()
+            break
+        if intrebare.lower() == "nou":
+            history = []
+            print("Conversatie resetata.\n")
+            continue
+        if not intrebare:
+            continue
+        print()
+        raspuns, history = raspunde(intrebare, history=history, verbose=False)
+        print(raspuns)
+        print(f"\n[Memorie: {len(history)//2} schimburi]\n")
 
 
 if __name__ == "__main__":
