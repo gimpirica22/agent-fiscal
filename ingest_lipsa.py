@@ -57,6 +57,10 @@ DOCUMENTE = [
         "pdf": "LEGEA nr. 70 din 2 aprilie 2015.pdf",
         "sursa": "Legea 70/2015 - Plafoane de Numerar",
     },
+    {
+        "pdf": "LEGE nr. 265 din 22 iulie 2022.pdf",
+        "sursa": "Legea 265/2022 - Registrul Comerțului și Înregistrarea Firmelor",
+    },
 ]
 
 ARTICOL_RE = re.compile(r"\b(?:ART\.?\s*(?:ART\.?\s*)?|Articolul\s+)(\d+\^?\d*)\s*[-–.]?\s*([^\n]*)")

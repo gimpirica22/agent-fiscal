@@ -71,6 +71,7 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
 - REVISAL — Registrul General de Evidenta a Salariatilor (HG 500/2011)
 - Legea Societatilor Comerciale (Legea 31/1990) — capital social, asociati, dividende, administrare
 - Legea plafoanelor de numerar (Legea 70/2015) — reguli cash, plafoane incasari/plati
+- Legea Registrului Comertului (Legea 265/2022) — infiintare firme, procedura ONRC, modificari acte
 - Legislatia specifica domeniului constructiilor
 
 {CONTEXT_FIRME}
