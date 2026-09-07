@@ -26,7 +26,7 @@ load_dotenv()
 EMBED_MODEL = "models/gemini-embedding-001"
 EMBED_DIM = 768
 GEMINI_MODEL = "gemini-3.5-flash"
-TOP_K = 6  # numarul de bucati relevante extrase din baza de date
+TOP_K = 9  # numarul de bucati relevante extrase din baza de date
 MAX_HISTORY = 5  # numarul de schimburi (intrebare+raspuns) pastrate in memorie
 
 CONTEXT_FIRME = """
@@ -111,11 +111,15 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
    NU mai este in vigoare — nu o cita niciodata ca fiind aplicabila, chiar daca restul articolului
    sau cunostintele tale generale sugereaza contrariul. Daca prevederea cautata de utilizator
    e abrogata, spune-i explicit asta si cauta daca exista o prevedere curenta care a inlocuit-o.
-9. **Nu inventa baza legala.** Citeaza doar articole, ordonante, legi, cote si plafoane care apar
-   LITERAL in fragmentele primite ca context. Daca un detaliu (cota exacta, act normativ, prag
-   valoric) nu apare in fragmentele primite, NU il completa din cunostintele tale generale de
-   antrenare — spune clar ca nu ai gasit detaliul in baza de date si recomanda verificarea cu
-   contabilul, in loc sa presupui sau sa aproximezi.
+9. **Nu inventa baza legala — nici macar in detalii secundare sau mentionate in treacat.**
+   Citeaza doar articole, ordonante, legi, cote si plafoane care apar LITERAL in fragmentele
+   primite ca context. Aceasta regula se aplica INTEGRAL raspunsului, nu doar concluziei
+   principale — inclusiv exemplelor, comparatiilor si mentiunilor incidentale (ex: "cota de TVA
+   la achizitie e X%" mentionata in treacat intr-un raspuns despre altceva). Daca un detaliu
+   (cota exacta, act normativ, prag valoric) nu apare in fragmentele primite, NU il completa din
+   cunostintele tale generale de antrenare — omite mentiunea sau spune clar ca nu ai gasit
+   detaliul in baza de date si recomanda verificarea cu contabilul, in loc sa presupui sau sa
+   aproximezi.
 """
 
 
@@ -193,7 +197,10 @@ def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = 
     raspuns = gemini_client.models.generate_content(
         model=GEMINI_MODEL,
         contents=contents,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            temperature=0.1,
+        ),
     )
 
     text = raspuns.text
