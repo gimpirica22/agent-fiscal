@@ -19,3 +19,7 @@ lipsa_idx.json
 
 # Memorie Claude Code
 .claude/
+
+# Backup fragmente sterse din baza de legi
+backup_fragmente_*.json
+cache_embeddinguri_munca.json
