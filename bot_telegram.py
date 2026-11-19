@@ -138,9 +138,15 @@ async def proceseaza_intrebare(update: Update, context: ContextTypes.DEFAULT_TYP
 
     except Exception as e:
         logger.error("Eroare la procesarea intrebarii: %s", e)
-        await update.message.reply_text(
-            "A aparut o eroare la procesarea intrebarii. Te rog incearca din nou."
-        )
+        if getattr(e, "code", None) in (429, 503, 504):
+            await update.message.reply_text(
+                "Toate modelele Gemini sunt suprasolicitate acum (problema e la Google). "
+                "Balantele si datele tale sunt salvate. Mai trimite intrebarea peste cateva minute."
+            )
+        else:
+            await update.message.reply_text(
+                "A aparut o eroare la procesarea intrebarii. Te rog incearca din nou."
+            )
 
 
 async def cmd_nou(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

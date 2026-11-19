@@ -18,6 +18,8 @@ import sys
 import time
 from datetime import datetime
 
+import httpx
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai import errors, types
@@ -35,7 +37,7 @@ MAX_HISTORY = 5  # numarul de schimburi (intrebare+raspuns) pastrate in memorie
 RETRY_CODES = {503, 504, 429}  # model suprasolicitat / cota depasita — merita reincercat
 RETRY_DELAYS = [3]  # secunde intre reincercari
 # Folosite in ordine daca modelul principal ramane suprasolicitat dupa toate reincercarile
-MODELE_REZERVA = ["gemini-2.5-flash"]
+MODELE_REZERVA = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
 
 # Profilul firmelor (date personale) sta in profil_firme.md, care nu se urca pe GitHub.
 # Pe server fisierul se copiaza separat si se monteaza in container (docker-compose.yml).
@@ -265,7 +267,7 @@ def genereaza_cu_retry(gemini_client: genai.Client, contents: list, verbose: boo
     Daca modelul principal ramane suprasolicitat, trece la modelele de rezerva.
     """
     ultima_eroare = None
-    for model, pauze in [(GEMINI_MODEL, [0] + RETRY_DELAYS)] + [(m, [0, 5]) for m in MODELE_REZERVA]:
+    for model, pauze in [(GEMINI_MODEL, [0] + RETRY_DELAYS)] + [(m, [0]) for m in MODELE_REZERVA]:
         for delay in pauze:
             if delay:
                 if verbose:
@@ -281,9 +283,13 @@ def genereaza_cu_retry(gemini_client: genai.Client, contents: list, verbose: boo
                     ),
                 )
             except errors.APIError as e:
+                ultima_eroare = e
+                if e.code == 404:  # model retras pentru aceasta cheie: trecem direct la urmatorul
+                    break
                 if e.code not in RETRY_CODES:
                     raise
-                ultima_eroare = e
+            except httpx.TimeoutException as e:  # modelul nu a raspuns in timpul stabilit
+                ultima_eroare = errors.APIError(504, {"error": {"message": f"timeout: {e}"}})
         if verbose:
             print(f"{model} indisponibil, trec la modelul de rezerva.")
     raise ultima_eroare
@@ -306,7 +312,7 @@ def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = 
     # Fara reincercarile ascunse ale bibliotecii: reincercam noi si trecem la modelul de rezerva
     gemini_client = genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
-        http_options=types.HttpOptions(timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1)),
+        http_options=types.HttpOptions(timeout=45_000, retry_options=types.HttpRetryOptions(attempts=1)),
     )
     sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
