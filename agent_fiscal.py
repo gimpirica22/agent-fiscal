@@ -23,6 +23,8 @@ from google import genai
 from google.genai import errors, types
 from supabase import create_client
 
+from balanta_saga import context_financiar
+
 load_dotenv()
 
 EMBED_MODEL = "models/gemini-embedding-001"
@@ -179,6 +181,43 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
    de la al doilea mijloc fix vandut in an, oricare ar fi subgrupa, veniturile din toate aceste
    vanzari se adauga la cifra de afaceri.
    Mentioneaza SDI Capital Group doar daca intrebarea o priveste.
+16. **Cifrele firmelor.** Mesajul contine ultima balanta SAGA a fiecarei firme si indicatori deja
+   calculati din ea. Cand intrebarea priveste o firma anume (profit, bani, impozite, cat se poate
+   scoate, optimizari), foloseste aceste cifre si spune din ce balanta (firma, luna) sunt.
+   - Foloseste indicatorii exact cum sunt dati. Daca faci un calcul nou (ex: impozitul pe un
+     dividend), arata formula si cifrele, pe un rand.
+   - Balanta e lunara, cumulata de la inceputul anului, si nu e bilantul final: profitul poate
+     inca sa se schimbe prin inregistrari de inchidere. Spune asta la sume importante.
+   - Daca o firma nu are balanta incarcata, spune ca n-ai cifrele ei si cere balanta.
+   - Semnaleaza ce pare anormal fata de marimea firmei: sold mare in casa (531), debitori diversi
+     (461), decontari in curs (473), impozit pe profit inregistrat mic fata de profitul brut,
+     clienti vechi neincasati. Formuleaza ca intrebari de verificat cu contabilul, nu ca acuzatii.
+   - **Scoaterea banilor din firma:** compara variantele legale pe cifrele firmei: restituirea
+     sumelor datorate asociatului (455, fara impozit), dividende (inclusiv interimare; profitul
+     distribuibil se calculeaza dupa acoperirea pierderii reportate si constituirea rezervei legale),
+     salariu sau indemnizatie de administrator, chirie pentru bunuri ale asociatului. Pentru
+     fiecare: cat se poate scoate, ce taxe se platesc (cote doar din fragmente sau din reperele de la
+     punctul 14) si ce acte trebuie (hotarare AGA, situatii interimare, contract).
+   - **Restituirea imprumutului asociatului (455):** (a) se face NUMAI prin banca, niciodata din casa
+     (Legea 70/2015 art. 4 alin. 4); (b) e INTERZISA daca, pe baza ultimelor situatii financiare anuale
+     aprobate, activul net e sub jumatate din capitalul social (Legea 31/1990 art. 67 alin. 2^4;
+     amenda 10.000-200.000 lei si raspundere solidara). Verifica indicatorul "activ net la sfarsitul
+     anului precedent sub jumatate din capitalul social": daca e 1, spune clar ca restituirea nu e
+     permisa acum si ca devine posibila abia dupa aprobarea situatiilor anuale care arata un activ
+     net de cel putin jumatate din capital.
+   - **Dividende interimare:** se distribuie trimestrial, pe baza situatiilor financiare interimare
+     la sfarsitul trimestrului (Legea 31/1990 art. 67 alin. 2), nu pe o balanta de la mijlocul
+     trimestrului. Profitul distribuibil se calculeaza dupa impozitul pe profit aferent: daca
+     indicatorul "impozit pe profit inca neinregistrat" e semnificativ, scade-l si spune ca e o
+     estimare de confirmat cu contabilul. Dividendele in numerar catre o persoana: maximum 10.000
+     lei pe zi (Legea 70/2015 art. 4 alin. 1); restul prin banca.
+   - **Comparatia corecta intre variante:** compara costul total pentru acelasi leu de profit
+     brut. Dividendul vine din profitul deja impozitat: 1 leu profit brut -> 16% impozit pe profit
+     -> 16% impozit pe dividend din rest (plus CASS plafonat). Salariul, indemnizatia si chiria sunt
+     cheltuieli deductibile: reduc impozitul pe profit, dar au taxele lor. Arata calculul pe aceeasi
+     suma, nu compara doar cota de 16% de la dividende cu taxele salariale.
+   - Lucreaza doar cu operatiunile din contabilitate. Nu da solutii pentru plati sau incasari
+     neinregistrate si nu le folosi ca ipoteza.
 """
 
 
@@ -281,9 +320,17 @@ def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = 
             types.Content(role=turn["role"], parts=[types.Part(text=turn["text"])])
         )
     # Mesajul curent include contextul RAG proaspat
+    try:
+        financiar = context_financiar(sb)
+    except Exception as e:  # botul raspunde si fara balante
+        if verbose:
+            print(f"Nu am putut citi balantele: {e}")
+        financiar = ""
     mesaj_curent = (
         f"DATA DE AZI: {data_azi()}. Daca intrebarea implica termene legale, spune clar care au trecut deja "
         f"si ce se mai poate face acum.\n\n"
+        f"SITUATIA FINANCIARA A FIRMELOR (ultima balanta SAGA incarcata):\n\n"
+        f"{financiar or 'Nicio balanta incarcata inca.'}\n\n---\n\n"
         f"FRAGMENTE LEGISLATIVE RELEVANTE:\n\n{context}\n\n---\n\nINTREBARE: {intrebare}"
     )
     contents.append(types.Content(role="user", parts=[types.Part(text=mesaj_curent)]))

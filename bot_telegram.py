@@ -30,7 +30,10 @@ from telegram.ext import (
     filters,
 )
 
+from supabase import create_client
+
 from agent_fiscal import raspunde
+from balanta_saga import citeste_pdf, indicatori, lei, salveaza
 
 load_dotenv()
 
@@ -164,6 +167,50 @@ async def mesaj_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await proceseaza_intrebare(update, context, intrebare)
 
 
+async def document_primit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Balanta de verificare SAGA trimisa ca PDF: o citeste, o verifica si o salveaza."""
+    if not utilizator_permis(update.effective_user.id):
+        await update.message.reply_text("Acces neautorizat.")
+        return
+    doc = update.message.document
+    if not (doc.file_name or "").lower().endswith(".pdf"):
+        await update.message.reply_text("Trimite balanta de verificare exportata din SAGA, in format PDF.")
+        return
+
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+    try:
+        fisier = await doc.get_file()
+        continut = bytes(await fisier.download_as_bytearray())
+        bal = citeste_pdf(continut)
+        ind = indicatori(bal)
+        sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+        salveaza(sb, bal, ind)
+    except ValueError as e:
+        await update.message.reply_text(f"Nu am putut folosi fisierul: {e}")
+        return
+    except Exception as e:
+        logger.error("Eroare la balanta: %s", e)
+        await update.message.reply_text("A aparut o eroare la citirea balantei. Incearca din nou.")
+        return
+
+    await update.message.reply_text(
+        f"Am salvat balanta {bal.firma}, {bal.data_inceput} - {bal.data_sfarsit} "
+        f"({len(bal.conturi)} conturi, totalurile bat).\n\n"
+        f"Cifra de afaceri de la inceputul anului: {lei(ind['cifra_afaceri_an'])}\n"
+        f"Profit net de la inceputul anului: {lei(ind['profit_net_an'])}\n"
+        f"Bani in banca si casa: {lei(ind['banca_lei'] + ind['banca_valuta'] + ind['casa'])}\n"
+        f"Clienti de incasat: {lei(ind['clienti_de_incasat'])}\n\n"
+        "Iti fac acum analiza..."
+    )
+    ISTORII.pop(update.effective_user.id, None)
+    await proceseaza_intrebare(
+        update, context,
+        f"Am incarcat balanta {bal.firma} pe perioada {bal.data_inceput} - {bal.data_sfarsit}. "
+        "Fa-mi o analiza scurta: cum sta firma, ce ti se pare anormal si de verificat cu contabilul, "
+        "ce termene si plati urmeaza si 2-3 optimizari concrete pe cifrele ei.",
+    )
+
+
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
@@ -181,6 +228,7 @@ def main() -> None:
     app.add_handler(CommandHandler("nou", cmd_nou))
     app.add_handler(CommandHandler("intreaba", cmd_intreaba))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_text))
+    app.add_handler(MessageHandler(filters.Document.ALL, document_primit))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
