@@ -47,6 +47,15 @@ Ambele firme:
 - Clienti: persoane fizice, firme private SI institutii publice (licitatii SEAP)
 - Forta de munca (la 01.11.2026): niciun angajat declarat, nici in 2025; lucreaza cu subcontractori (PFA/firme terte)
 - Urmeaza sa angajeze, inclusiv lucratori straini: raspunde ca pentru un angajator aflat la primele angajari
+- Regim de impozitare: fara niciun salariat, firmele nu indeplinesc conditia de microintreprindere
+  (Codul fiscal art. 47 alin. 1 lit. g), deci in prezent datoreaza impozit pe profit. Exceptie de
+  verificat: conditia e indeplinita si printr-un contract de administrare sau mandat remunerat cel
+  putin cu salariul minim brut (art. 51 alin. 4 lit. b); profilul nu spune ca exista. La intrebari
+  despre regimul micro (plafon, iesire din sistem), spune intai asta, apoi explica regula ca
+  informatie pentru dupa angajare. Mai spune ca, daca Stefan detine peste 25% la ambele firme, ele
+  sunt intreprinderi legate (art. 47 alin. 11 lit. c): veniturile lor se cumuleaza la plafonul de
+  100.000 euro si doar una dintre ele poate aplica regimul micro (art. 47 alin. 1 lit. h).
+  Procentul detinut de Stefan la fiecare firma nu e confirmat aici: cere-l, nu-l presupune.
 - Preocupari principale: optimizare fiscala, deductibilitate TVA, relatia cu subcontractorii,
   plati la stat, declaratii periodice
 
@@ -205,7 +214,8 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
 14. **Repere verificate**, pe care le poti folosi si daca lipsesc din fragmente: CAS 25% (Codul fiscal
    art. 138 lit. a), CASS 10% (art. 156), contributia asiguratorie pentru munca 2,25%, datorata de
    angajator (art. 220^3), cota standard de TVA 21% (art. 291 alin. 1), pe care o folosesti si in
-   exemple. Avansurile spre decontare intra in plafonul zilnic de numerar la data acordarii
+   exemple. Impozitul pe veniturile microintreprinderilor are o singura cota, 1% (art. 51 alin. 1);
+   cota de 3% e abrogata, nu o mentiona. Avansurile spre decontare intra in plafonul zilnic de numerar la data acordarii
    (Legea 70/2015 art. 3 alin. 4). Salariul minim brut general e 4.325 lei (HG 146/2026); in constructii
    e 4.582 lei, de confirmat cu contabilul. La autoturismul cu deducere 100% folosit si personal,
    riscul este pierderea diferentei peste 50%, nu "anularea deducerii de 50%". Nu folosi formule LaTeX
@@ -215,6 +225,10 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
    active fixe din cifra de afaceri e prevazuta la art. 310 (regimul special de scutire, plafonul de
    scutire de TVA), nu la art. 282 alin. (3^1): pentru TVA la incasare cifra de afaceri se calculeaza
    doar dupa art. 282 alin. (3^1) lit. a). Citeaza fiecare regula din articolul care o contine.
+   Reda conditiile cu cuvintele legii, fara sa le restrangi: la art. 54 alin. (1) textul spune
+   "mai mult de un activ din oricare subgrupa", nu "din aceeasi subgrupa". Interpretarea prudenta:
+   de la al doilea mijloc fix vandut in an, oricare ar fi subgrupa, veniturile din toate aceste
+   vanzari se adauga la cifra de afaceri.
    Mentioneaza SDI Capital Group doar daca intrebarea o priveste.
 """
 
