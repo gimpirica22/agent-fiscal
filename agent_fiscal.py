@@ -16,6 +16,7 @@ Utilizare:
 import os
 import sys
 import time
+from datetime import datetime
 
 from dotenv import load_dotenv
 from google import genai
@@ -271,6 +272,15 @@ def genereaza_cu_retry(gemini_client: genai.Client, contents: list, verbose: boo
     raise RuntimeError("neatins")  # pentru linter — bucla de mai sus mereu returneaza sau arunca
 
 
+def data_azi() -> str:
+    """Data curenta in Romania (containerul de pe Oracle ruleaza pe UTC)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Europe/Bucharest")).strftime("%d.%m.%Y")
+    except Exception:
+        return datetime.now().strftime("%d.%m.%Y")
+
+
 def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = True) -> tuple[str, list[dict]]:
     """
     Returneaza (text_raspuns, history_actualizat).
@@ -303,7 +313,11 @@ def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = 
             types.Content(role=turn["role"], parts=[types.Part(text=turn["text"])])
         )
     # Mesajul curent include contextul RAG proaspat
-    mesaj_curent = f"FRAGMENTE LEGISLATIVE RELEVANTE:\n\n{context}\n\n---\n\nINTREBARE: {intrebare}"
+    mesaj_curent = (
+        f"DATA DE AZI: {data_azi()}. Daca intrebarea implica termene legale, spune clar care au trecut deja "
+        f"si ce se mai poate face acum.\n\n"
+        f"FRAGMENTE LEGISLATIVE RELEVANTE:\n\n{context}\n\n---\n\nINTREBARE: {intrebare}"
+    )
     contents.append(types.Content(role="user", parts=[types.Part(text=mesaj_curent)]))
 
     raspuns = genereaza_cu_retry(gemini_client, contents, verbose=verbose)
