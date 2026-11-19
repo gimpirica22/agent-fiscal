@@ -23,3 +23,6 @@ lipsa_idx.json
 # Backup fragmente sterse din baza de legi
 backup_fragmente_*.json
 cache_embeddinguri_munca.json
+
+# Profilul firmelor - date personale, se copiaza manual pe server
+profil_firme.md

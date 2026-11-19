@@ -33,70 +33,11 @@ MAX_HISTORY = 5  # numarul de schimburi (intrebare+raspuns) pastrate in memorie
 RETRY_CODES = {503, 429}  # model suprasolicitat / cota depasita — merita reincercat
 RETRY_DELAYS = [3, 8, 15]  # secunde intre reincercari
 
-CONTEXT_FIRME = """
-## Profilul utilizatorului
-
-Stefan Ion — patron a doua firme de constructii din Romania:
-
-**Step Construct SRL** (CUI 35754740)
-**Total Tehnoconstruct SRL** (CUI 40980086)
-
-Ambele firme:
-- Cod CAEN 4120 (constructii cladiri rezidentiale si nerezidentiale)
-- Platitoare de TVA
-- Clienti: persoane fizice, firme private SI institutii publice (licitatii SEAP)
-- Asociat unic la ambele firme: Stefan Ion detine 100% la Step Construct si 100% la Total Tehnoconstruct
-- Forta de munca (la 19.11.2026): niciun muncitor angajat; lucreaza cu subcontractori (PFA/firme terte).
-  Singurele contracte sunt ale lui Stefan:
-  - **Step Construct**: Stefan e angajat cu contract individual de munca, ca director general.
-    Nu se stie de cand si daca e cu norma intreaga.
-  - **Total Tehnoconstruct**: Stefan are contract de mandat. Nu se stie daca e remunerat si cu cat.
-- Urmeaza sa angajeze muncitori, inclusiv straini: raspunde ca pentru un angajator aflat la primele
-  angajari de personal de executie
-- Regim de impozitare (regimul efectiv aplicat nu e confirmat aici; nu-l presupune):
-  - Conditia de salariat pentru micro (art. 47 alin. 1 lit. g): la Step Construct poate fi indeplinita
-    prin CIM-ul lui Stefan, daca e cu norma intreaga (art. 51 alin. 4); la Total Tehnoconstruct, prin
-    contractul de mandat doar daca e remunerat cel putin cu salariul minim brut (art. 51 alin. 4 lit. b).
-  - Firmele sunt intreprinderi legate (art. 47 alin. 11 lit. c): Stefan detine peste 25% la Step
-    Construct, la Total Tehnoconstruct si la SDI Capital Group (50%). La plafonul de 100.000 euro se
-    cumuleaza veniturile tuturor firmelor legate.
-  - Doar una dintre firmele la care Stefan detine peste 25% poate aplica regimul micro (art. 47
-    alin. 1 lit. h); celelalte datoreaza impozit pe profit.
-  - La intrebari despre regimul micro, aplica aceste reguli concret si spune ce mai trebuie verificat
-    (norma CIM, remuneratia mandatului, veniturile cumulate).
-- Preocupari principale: optimizare fiscala, deductibilitate TVA, relatia cu subcontractorii,
-  plati la stat, declaratii periodice
-
-## A treia firma: SDI Capital Group SRL (infiintata recent, inca neconectata operational)
-
-**SDI Capital Group SRL** (CUI 55528535, Nr. Reg. Com. J2026052709007)
-- Infiintata 05.08.2026, inmatriculata 03.09.2026 — firma foarte noua
-- Cod CAEN 6421 (activitati de holding), cu activitati secundare IT, imobiliare,
-  consultanta in afaceri si leasing echipamente pentru constructii
-- Asociati: Stefan Ion 50% (administrator, mandat pana in 2046) si Stefan Daria Ioana 50%
-- Sediu: Ploiesti, Str. Tatarani, Nr. 9, Prahova
-
-IMPORTANT: la data actualizarii acestui profil, SDI Capital Group NU detine inca parti
-sociale la Step Construct SRL sau Total Tehnoconstruct SRL. Cesiunea de parti sociale prin
-care SDI ar deveni asociat la cele doua firme de constructii este doar planificata, nu s-a
-realizat. NU presupune si NU afirma o relatie de holding activa (detinere, consolidare,
-scutire de dividende) intre SDI si cele doua firme pana cand aceasta informatie nu este
-actualizata explicit aici.
-
-## Atentie: facilitati fiscale constructii — verifica mereu in context
-
-Facilitatile fiscale pentru sectorul constructii (impozit pe venit, CAS) s-au modificat frecvent
-in ultimii ani (OUG 114/2018, OUG 43/2019 si modificari ulterioare). NU presupune ca regulile
-vechi mai sunt valabile — verifica intotdeauna starea curenta (activa/abrogata) direct in
-fragmentele din context inainte sa afirmi ceva despre ele.
-
-## Riscuri specifice de monitorizat
-
-1. **Subcontractori**: ANAF verifica daca subcontractorii sunt firme/PFA reale sau salariati deghizati.
-   Contractele trebuie structurate corect.
-2. **Licitatii publice**: obligatii speciale privind TVA, garantii, retineri.
-3. **Lucrari la persoane fizice**: reguli speciale TVA (cota redusa 5% sau 9% in anumite conditii).
-"""
+# Profilul firmelor (date personale) sta in profil_firme.md, care nu se urca pe GitHub.
+# Pe server fisierul se copiaza separat si se monteaza in container (docker-compose.yml).
+PROFIL_FIRME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profil_firme.md")
+with open(PROFIL_FIRME, encoding="utf-8") as f:
+    CONTEXT_FIRME = f.read()
 
 SYSTEM_PROMPT = f"""Esti **consilierul fiscal, juridic si de resurse umane** al lui Stefan Ion,
 patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta in:
@@ -185,10 +126,9 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
      incheie contract cu o agentie autorizata (art. 10), iar agentia completeaza cererea unica
      (art. 27^2 alin. 1). Numarul de straini nu poate depasi media salariatilor din anul anterior
      (art. 6 alin. 6-7). Textul nu prevede o exceptie de la plafon pentru cei care lucreaza prin
-     agentie: nu spune ca agentia il elimina. La Total Tehnoconstruct media pe 2025 e 0 (mandatul nu e
-     contract de munca), deci plafonul e literal 0. La Step Construct media pe 2025 depinde de data
-     de la care Stefan are CIM: daca il avea in 2025, media e de cel mult 1, deci plafonul e de cel
-     mult un strain; altfel e 0. Recomanda confirmare de la ANOFM sau avocat inainte de a plati o agentie.
+     agentie: nu spune ca agentia il elimina. Media pe 2025 a fiecarei firme rezulta din profil
+     (sectiunea "Plafonul pentru straini"). Recomanda confirmare de la ANOFM sau avocat inainte de a
+     plati o agentie.
    - **Autorizarea proprie** (art. 11-18) cere cumulativ, intre altele, media de cel putin 50 de
      salariati, 24 de luni de activitate si straini angajati in anul anterior (art. 12 alin. 1).
      Step Construct si Total Tehnoconstruct nu indeplinesc aceste conditii: nu le recomanda
