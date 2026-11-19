@@ -32,8 +32,10 @@ EMBED_DIM = 768
 GEMINI_MODEL = "gemini-3.5-flash"
 TOP_K = 9  # numarul de bucati relevante extrase din baza de date
 MAX_HISTORY = 5  # numarul de schimburi (intrebare+raspuns) pastrate in memorie
-RETRY_CODES = {503, 429}  # model suprasolicitat / cota depasita — merita reincercat
-RETRY_DELAYS = [3, 8, 15]  # secunde intre reincercari
+RETRY_CODES = {503, 504, 429}  # model suprasolicitat / cota depasita — merita reincercat
+RETRY_DELAYS = [3]  # secunde intre reincercari
+# Folosite in ordine daca modelul principal ramane suprasolicitat dupa toate reincercarile
+MODELE_REZERVA = ["gemini-2.5-flash"]
 
 # Profilul firmelor (date personale) sta in profil_firme.md, care nu se urca pe GitHub.
 # Pe server fisierul se copiaza separat si se monteaza in container (docker-compose.yml).
@@ -258,25 +260,33 @@ def formateaza_context(bucati: list[dict]) -> str:
 
 
 def genereaza_cu_retry(gemini_client: genai.Client, contents: list, verbose: bool = True):
-    """Apeleaza generate_content cu reincercare pentru erorile temporare (503/429)."""
-    for incercare, delay in enumerate([0] + RETRY_DELAYS):
-        if delay:
-            if verbose:
-                print(f"Model suprasolicitat, reincerc in {delay}s...")
-            time.sleep(delay)
-        try:
-            return gemini_client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
-                    temperature=0.1,
-                ),
-            )
-        except errors.APIError as e:
-            if e.code not in RETRY_CODES or incercare == len(RETRY_DELAYS):
-                raise
-    raise RuntimeError("neatins")  # pentru linter — bucla de mai sus mereu returneaza sau arunca
+    """
+    Apeleaza generate_content cu reincercare pentru erorile temporare (503/429).
+    Daca modelul principal ramane suprasolicitat, trece la modelele de rezerva.
+    """
+    ultima_eroare = None
+    for model, pauze in [(GEMINI_MODEL, [0] + RETRY_DELAYS)] + [(m, [0, 5]) for m in MODELE_REZERVA]:
+        for delay in pauze:
+            if delay:
+                if verbose:
+                    print(f"{model} suprasolicitat, reincerc in {delay}s...")
+                time.sleep(delay)
+            try:
+                return gemini_client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        temperature=0.1,
+                    ),
+                )
+            except errors.APIError as e:
+                if e.code not in RETRY_CODES:
+                    raise
+                ultima_eroare = e
+        if verbose:
+            print(f"{model} indisponibil, trec la modelul de rezerva.")
+    raise ultima_eroare
 
 
 def data_azi() -> str:
@@ -293,7 +303,11 @@ def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = 
     Returneaza (text_raspuns, history_actualizat).
     history: lista de dict {"role": "user"|"model", "text": "..."}
     """
-    gemini_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # Fara reincercarile ascunse ale bibliotecii: reincercam noi si trecem la modelul de rezerva
+    gemini_client = genai.Client(
+        api_key=os.environ["GEMINI_API_KEY"],
+        http_options=types.HttpOptions(timeout=60_000, retry_options=types.HttpRetryOptions(attempts=1)),
+    )
     sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
     if verbose:
