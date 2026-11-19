@@ -37,7 +37,7 @@ MAX_HISTORY = 5  # numarul de schimburi (intrebare+raspuns) pastrate in memorie
 RETRY_CODES = {503, 504, 429}  # model suprasolicitat / cota depasita — merita reincercat
 RETRY_DELAYS = [3]  # secunde intre reincercari
 # Folosite in ordine daca modelul principal ramane suprasolicitat dupa toate reincercarile
-MODELE_REZERVA = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
+MODELE_REZERVA = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
 
 # Profilul firmelor (date personale) sta in profil_firme.md, care nu se urca pe GitHub.
 # Pe server fisierul se copiaza separat si se monteaza in container (docker-compose.yml).
@@ -283,9 +283,10 @@ def genereaza_cu_retry(gemini_client: genai.Client, contents: list, verbose: boo
                     ),
                 )
             except errors.APIError as e:
-                ultima_eroare = e
                 if e.code == 404:  # model retras pentru aceasta cheie: trecem direct la urmatorul
+                    ultima_eroare = ultima_eroare or e
                     break
+                ultima_eroare = e
                 if e.code not in RETRY_CODES:
                     raise
             except httpx.TimeoutException as e:  # modelul nu a raspuns in timpul stabilit
