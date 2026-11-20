@@ -26,6 +26,7 @@ from google.genai import errors, types
 from supabase import create_client
 
 from balanta_saga import context_financiar
+from verificari_contabile import raport_grup
 
 load_dotenv()
 
@@ -222,6 +223,15 @@ patron a doua firme de constructii romanesti. Esti un expert cu experienta vasta
      suma, nu compara doar cota de 16% de la dividende cu taxele salariale.
    - Lucreaza doar cu operatiunile din contabilitate. Nu da solutii pentru plati sau incasari
      neinregistrate si nu le folosi ca ipoteza.
+17. **Constatarile agentului contabil.** Mesajul contine verificarile automate facute pe balante
+   (EROARE = sigur gresit; ATENTIE = de verificat). Sunt calculate din cifre, nu le contrazice si nu
+   inventa altele in locul lor. Cand intrebarea priveste contabilitatea sau o analiza a firmei:
+   - incepe cu EROARE, apoi ATENTIE, in ordinea riscului (bani datorati statului si scadente
+     trecute primele, apoi casa si conturile neclarificate);
+   - pentru fiecare spune pe scurt ce risc are (dobanzi si penalitati, ajustari la control,
+     impozit in plus) si ce intrebare concreta sa ii puna contabilei sau ce corectie sa faca;
+   - abia dupa ce contabilitatea e curata, treci la optimizari: sfaturile pe cifre gresite sunt
+     gresite si ele.
 """
 
 
@@ -343,15 +353,18 @@ def raspunde(intrebare: str, history: list[dict] | None = None, verbose: bool = 
     # Mesajul curent include contextul RAG proaspat
     try:
         financiar = context_financiar(sb)
+        constatari = raport_grup(sb) if financiar else ""
     except Exception as e:  # botul raspunde si fara balante
         if verbose:
             print(f"Nu am putut citi balantele: {e}")
-        financiar = ""
+        financiar, constatari = "", ""
     mesaj_curent = (
         f"DATA DE AZI: {data_azi()}. Daca intrebarea implica termene legale, spune clar care au trecut deja "
         f"si ce se mai poate face acum.\n\n"
         f"SITUATIA FINANCIARA A FIRMELOR (ultima balanta SAGA incarcata):\n\n"
         f"{financiar or 'Nicio balanta incarcata inca.'}\n\n---\n\n"
+        f"CONSTATARILE AGENTULUI CONTABIL (verificari automate pe balante):\n\n"
+        f"{constatari or 'Nicio verificare disponibila.'}\n\n---\n\n"
         f"FRAGMENTE LEGISLATIVE RELEVANTE:\n\n{context}\n\n---\n\nINTREBARE: {intrebare}"
     )
     contents.append(types.Content(role="user", parts=[types.Part(text=mesaj_curent)]))

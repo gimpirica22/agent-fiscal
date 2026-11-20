@@ -34,6 +34,7 @@ from supabase import create_client
 
 from agent_fiscal import raspunde
 from balanta_saga import citeste_pdf, indicatori, lei, salveaza
+from verificari_contabile import balanta_anterioara, raport_grup, text_constatari, verifica_balanta
 
 load_dotenv()
 
@@ -88,8 +89,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Comenzi disponibile:*\n\n"
         "/start — mesaj de bun venit\n"
         "/help — aceasta lista\n"
-        "/intreaba \\<intrebare\\> — intrebare fiscala\n\n"
-        "Sau trimite direct mesajul cu intrebarea ta.",
+        "/intreaba \\<intrebare\\> — intrebare fiscala\n"
+        "/verifica — verificarea contabila a ultimelor balante\n"
+        "/nou — conversatie noua\n\n"
+        "Trimite balanta de verificare SAGA \\(PDF\\) ca sa fie verificata\\.\n"
+        "Sau trimite direct mesajul cu intrebarea ta\\.",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
 
@@ -206,15 +210,43 @@ async def document_primit(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         f"Profit net de la inceputul anului: {lei(ind['profit_net_an'])}\n"
         f"Bani in banca si casa: {lei(ind['banca_lei'] + ind['banca_valuta'] + ind['casa'])}\n"
         f"Clienti de incasat: {lei(ind['clienti_de_incasat'])}\n\n"
-        "Iti fac acum analiza..."
     )
+    # Raportul agentului contabil: reguli fixe, nu depinde de Gemini
+    try:
+        constatari = verifica_balanta(bal, balanta_anterioara(sb, bal))
+        await trimite_lung(update, text_constatari(bal, constatari))
+    except Exception as e:
+        logger.error("Eroare la verificarea balantei: %s", e)
+
+    await update.message.reply_text("Agentul fiscal face acum analiza...")
     ISTORII.pop(update.effective_user.id, None)
     await proceseaza_intrebare(
         update, context,
         f"Am incarcat balanta {bal.firma} pe perioada {bal.data_inceput} - {bal.data_sfarsit}. "
-        "Fa-mi o analiza scurta: cum sta firma, ce ti se pare anormal si de verificat cu contabilul, "
-        "ce termene si plati urmeaza si 2-3 optimizari concrete pe cifrele ei.",
+        "Fa-mi o analiza scurta: ce a gasit agentul contabil si ce sa corectez sau sa intreb contabila, "
+        "ce termene si plati urmeaza, apoi 2-3 optimizari concrete pe cifrele firmei.",
     )
+
+
+async def trimite_lung(update: Update, text: str) -> None:
+    """Trimite text simplu, impartit in bucati de max 4000 caractere."""
+    while text:
+        taietura = len(text) if len(text) <= 4000 else (text.rfind("\n", 0, 4000) + 1 or 4000)
+        await update.message.reply_text(text[:taietura])
+        text = text[taietura:]
+
+
+async def cmd_verifica(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Raportul agentului contabil pe ultima balanta a fiecarei firme."""
+    if not utilizator_permis(update.effective_user.id):
+        await update.message.reply_text("Acces neautorizat.")
+        return
+    try:
+        sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+        await trimite_lung(update, raport_grup(sb))
+    except Exception as e:
+        logger.error("Eroare la /verifica: %s", e)
+        await update.message.reply_text("Nu am putut face verificarea. Incearca din nou.")
 
 
 def main() -> None:
@@ -233,6 +265,7 @@ def main() -> None:
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("nou", cmd_nou))
     app.add_handler(CommandHandler("intreaba", cmd_intreaba))
+    app.add_handler(CommandHandler("verifica", cmd_verifica))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_text))
     app.add_handler(MessageHandler(filters.Document.ALL, document_primit))
 

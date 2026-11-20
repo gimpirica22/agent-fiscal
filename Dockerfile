@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY agent_fiscal.py .
 COPY balanta_saga.py .
+COPY verificari_contabile.py .
 COPY bot_telegram.py .
 
 CMD ["python", "-u", "bot_telegram.py"]
